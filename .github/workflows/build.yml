@@ -11,6 +11,8 @@ jobs:
     container:
       image: devkitpro/devkita64:latest
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -27,3 +29,17 @@ jobs:
           name: miku-mega39-plugin
           path: deploy/
           if-no-files-found: error
+
+      - name: Publish to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-build
+          name: MikuMikuSwitchPlugin CI Build
+          body: |
+            CI 自动构建产物 (main@${{ github.sha }})
+            - subsdk9: 放入 atmosphere/contents/0100801011c3e000/exefs/
+            - main.npdm: 同上目录
+            - TAA 修复: 强制16采样档 + 时域/jitter 打通
+            - 需手动开启: ExlSD:/MikuMikuSwitchPlugin/config.toml → [graphics] enable_taa = true
+          files: deploy/**
+          fail_on_unmatched_files: false
