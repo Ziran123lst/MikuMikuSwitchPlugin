@@ -33,6 +33,7 @@ struct Config {
     // Graphics
     static bool disableAdp;
     static bool enableSss;
+    static bool enableTaa;
     static bool cstmMenuFtStyle;
     static bool extraFtGraphics;
     static bool no3D;
