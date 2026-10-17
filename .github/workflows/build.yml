@@ -8,10 +8,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build in devkitpro Docker image
+      - name: Pull devkitpro image (with retry)
+        run: |
+          set -e
+          for i in 1 2 3 4 5; do
+            if sudo docker pull devkitpro/devkita64:latest 2>&1 | tail -3; then
+              echo "pull OK on attempt $i"
+              break
+            fi
+            echo "pull attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          sudo docker image inspect devkitpro/devkita64:latest >/dev/null
+
+      - name: Build in devkitpro container
         run: |
           set -e
           sudo docker run --rm -v "$PWD:/build" -w /build \
