@@ -8,13 +8,14 @@
  * exlaunch CodePatcher offsets are relative to the module .text start,
  * which equals the ELF virtual address (NSO text segment mem_off = 0).
  * The NSO file offset of .text is 0x101, so an address table expressed in
- * NSO-file offsets must be converted with FIX(addr)=addr-0x100.
- * The upstream tables (SSS/ADP/NPR/FXAA/shadow) are NSO-file offsets and
- * keep FIX(); they are confirmed working upstream.
- * The TAA table below comes from the user's main.elf VA table (machine code
- * verified at those vaddrs: 0x481B40 bl 0x4A0440, 0x4ABAC0 mov w26,wzr,
- * 0x4AE050 ldr w8,[x0,#0xC], 0x4A044C str w1,[x0,#0xC], 0x20C3D0 quality
- * getter reading gConfig+0x65708F94), so it is used directly without FIX().
+ * NSO-file offsets must be converted with FIX(addr)=addr-0x100 (upstream
+ * tools display vaddr+0x100; the real file offset is vaddr+0x101).
+ * The upstream tables (SSS/ADP/NPR/FXAA/shadow) keep FIX(); confirmed
+ * working upstream. Verified by searching the NSO file for the exact bytes:
+ * bl 0x4A0440 @ file 0x481C41 (=vaddr 0x481B40+0x101), mov w26,wzr @
+ * 0x4ABBC1 (=0x4ABAC0+0x101), ldr w8,[x0,#0xC] @ 0x4AE151, str w1,[x0,#0xC]
+ * @ 0x4A054D, mov w1,#0x400 @ 0x5E5F35. So TAA addresses (user's main.elf
+ * VA table) are used directly without FIX().
  */
 #define FIX(addr) ((addr) - 0x100)
 
@@ -685,7 +686,6 @@ void FTRestoration::init() {
         static const uint32_t sTaa16SampleBody[] = {
             0xF0005689u, // adrp x9, #0xcdf000
             0xF9444929u, // ldr  x9, [x9, #0x890]        ; gConfig
-            0xB4000109u, // cbz  x9, #0x20c3f8           ; skip if gConfig not ready
             0x5291F288u, // mov  w8, #0x8f94
             0x72ACAE08u, // movk w8, #0x6570, lsl #16    ; w8 = 0x65708F94
             0xB868692Au, // ldr  w10, [x9, x8]           ; flags
