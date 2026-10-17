@@ -8,51 +8,31 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install devkitPro toolchain
+      - name: Reset to upstream b8025c7 (repro test)
         run: |
-          set -e
-          wget -q https://github.com/devkitPro/pacman/releases/download/v6.0.2/devkitpro-pacman-installer.pkg -O /tmp/dkp.pkg
-          file /tmp/dkp.pkg
-          (cd / && sudo tar --zstd -xf /tmp/dkp.pkg 2>/dev/null) \
-            || (cd / && sudo tar -xJf /tmp/dkp.pkg 2>/dev/null) \
-            || (cd / && sudo tar -xf /tmp/dkp.pkg 2>/dev/null)
-          ls -la /opt/devkitpro/bin/
-
-      - name: Install switch-dev
-        run: |
-          export DEVKITPRO=/opt/devkitpro
-          sudo -E env DEVKITPRO=/opt/devkitpro PATH=$PATH /opt/devkitpro/bin/dkp-pacman -S --noconfirm switch-dev
+          git remote add upstream https://github.com/lsmsmx/MikuMikuSwitchPlugin.git
+          git fetch upstream b8025c7
+          git reset --hard upstream/b8025c7
+          git log --oneline -1
 
       - name: Build
         run: |
           export DEVKITPRO=/opt/devkitpro
-          export DEVKITA64=$DEVKITPRO/devkitA64
-          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:$PATH
-          make -j$(nproc)
+          export DEVKITA64=/opt/devkitpro/devkitA64
+          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
+          make -j8
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: miku-mega39-plugin
+          name: upstream-repro
           path: deploy/
           if-no-files-found: error
-
-      - name: Publish to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ci-build
-          name: MikuMikuSwitchPlugin CI Build
-          body: |
-            CI 自动构建产物 (main@${{ github.sha }})
-            部署(重要): 只放 subsdk9, 不要放 main.npdm!
-              - Ryujinx:  mods/contents/0100801011c3e000/exefs/subsdk9
-              - 大气层:  atmosphere/contents/0100801011c3e000/exefs/subsdk9
-              main.npdm 是 exlaunch 模板 NPDM, 覆盖游戏原 NPDM 会导致
-              "ROM 被加密/无法启动"。
-            TAA 修复(vaddr 修正版): 强制16采样档 + 时域/jitter 打通
-            需手动开启: ExlSD:/MikuMikuSwitchPlugin/config.toml → [graphics] enable_taa = true
-          files: deploy/subsdk9
-          fail_on_unmatched_files: false
