@@ -8,33 +8,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pull devkitpro image (diagnose, never fail)
+      - name: Build
         run: |
-          set +e
-          sudo docker pull devkitpro/devkita64:latest > pull.log 2>&1
-          echo "docker pull rc=$?"
-          echo "--- log tail ---"
-          tail -8 pull.log
-
-      - name: Upload pull log
-        uses: actions/upload-artifact@v4
-        with:
-          name: pull-log
-          path: pull.log
-          if-no-files-found: warn
-
-      - name: Build in devkitpro container
-        run: |
-          set -e
-          sudo docker run --rm -v "$PWD:/build" -w /build \
-            -e DEVKITPRO=/opt/devkitpro \
-            -e DEVKITA64=/opt/devkitpro/devkitA64 \
-            devkitpro/devkita64:latest \
-            bash -c "export PATH=/opt/devkitpro/devkitA64/bin:/opt/devkitpro/tools/bin:/usr/bin:/bin && make -j8"
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITA64=/opt/devkitpro/devkitA64
+          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
+          make -j8
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
