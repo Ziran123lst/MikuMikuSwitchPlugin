@@ -4,17 +4,29 @@
 #include "FTRestoration.hpp"
 #include "nc/diva_nc.hpp"
 
+/* NOTE on address bases (2026-10-17):
+ * exlaunch CodePatcher offsets are relative to the module .text start,
+ * which equals the ELF virtual address (NSO text segment mem_off = 0).
+ * The NSO file offset of .text is 0x101, so an address table expressed in
+ * NSO-file offsets must be converted with FIX(addr)=addr-0x100.
+ * The upstream tables (SSS/ADP/NPR/FXAA/shadow) are NSO-file offsets and
+ * keep FIX(); they are confirmed working upstream.
+ * The TAA table below comes from the user's main.elf VA table (machine code
+ * verified at those vaddrs: 0x481B40 bl 0x4A0440, 0x4ABAC0 mov w26,wzr,
+ * 0x4AE050 ldr w8,[x0,#0xC], 0x4A044C str w1,[x0,#0xC], 0x20C3D0 quality
+ * getter reading gConfig+0x65708F94), so it is used directly without FIX().
+ */
 #define FIX(addr) ((addr) - 0x100)
 
 #define ADDR_SSS_BIT_GETTER       FIX(0x0020B950)
 #define ADDR_SSS_BIT_SETTER       FIX(0x0020B970)
 
-// TAA (PS4 Future Tone restore)
-#define ADDR_TAA_QUALITY_FLAG     FIX(0x0020C3D0) // quality-flag getter, TAA capability gate at 0x4ABAF4
-#define ADDR_TAA_FRAME_DISABLE    FIX(0x00481B40) // per-frame disable call: bl 0x4A0440 with w1 = 0
-#define ADDR_TAA_ENABLE_STR       FIX(0x004A044C) // str w1, [x0, #0xC] -> str w8 (force enable = 1)
-#define ADDR_TAA_RESOLVE_W26      FIX(0x004ABAC0) // AA resolve: mov w26, wzr -> mov w26, #1 (temporal enable)
-#define ADDR_TAA_JITTER_FORCE     FIX(0x004AE050) // jitter path: ldr w8, [x0, #0xC] -> mov w8, #1 (force jitter)
+// TAA (PS4 Future Tone restore) - vaddr table, do NOT apply FIX()
+#define ADDR_TAA_QUALITY_FLAG     0x0020C3D0 // quality-flag getter, TAA capability gate at 0x4ABAF4
+#define ADDR_TAA_FRAME_DISABLE    0x00481B40 // per-frame disable call: bl 0x4A0440 with w1 = 0
+#define ADDR_TAA_ENABLE_STR       0x004A044C // str w1, [x0, #0xC] -> str w8 (force enable = 1)
+#define ADDR_TAA_RESOLVE_W26      0x004ABAC0 // AA resolve: mov w26, wzr -> mov w26, #1 (temporal enable)
+#define ADDR_TAA_JITTER_FORCE     0x004AE050 // jitter path: ldr w8, [x0, #0xC] -> mov w8, #1 (force jitter)
 
 #define ADDR_NPR_CSTMMENU_KILL    FIX(0x003D4674)
 #define ADDR_FXAA_CSTMMENU_KILL   FIX(0x003D4678)
