@@ -11,7 +11,9 @@
 #include "lib/diag/assert.hpp"
 
 #define UBOSIZE 0x1000
+#ifndef ALIGN_UP
 #define ALIGN_UP(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
+#endif
 
 typedef float Matrix44f[4][4];
 

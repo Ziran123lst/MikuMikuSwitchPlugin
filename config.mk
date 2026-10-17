@@ -19,8 +19,8 @@ PYTHON := python3
 NPDM_JSON := qlaunch.json
 
 # Additional C/C++ flags to use.
-C_FLAGS := 
-CXX_FLAGS := 
+C_FLAGS := -Wno-error 
+CXX_FLAGS := -Wno-error 
 
 # AsRtld settings
 #------------------------

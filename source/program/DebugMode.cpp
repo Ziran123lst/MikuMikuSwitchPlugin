@@ -118,7 +118,7 @@ namespace DebugMode {
                     {9, 8}, {3, 8}, {3, 9}, {3, 10}, {3, 11}, {3, 12}, {3, 13}, {3, 14}, {3, 15}, {3, 16},
                     {3, 17}, {3, 18}, {3, 19}, {3, 20}, {3, 21}, {3, 22}, {3, 23}, {3, 24},
                     {3, 25}, {3, 26}, {3, 27}, {3, 28}, {4, 29}, {5, 30}, {3, 31}, {12, 32},
-                    {12, 33}, {12, 34}, {12, 35}, {12, 312}, {12, 37}, {12, 38}, {12, 39}, {12, 40},
+                    {12, 33}, {12, 34}, {12, 35}, {12, 36}, {12, 312}, {12, 37}, {12, 38}, {12, 39}, {12, 40},
                     {12, 41}, {12, 42}, {12, 43}, {12, 44}, {12, 45}, {12, 46}, {2, 47}
                 };
                 constexpr int SCENE_COUNT = sizeof(SCENES) / sizeof(SCENES[0]);
@@ -147,8 +147,8 @@ namespace DebugMode {
             uint32_t engineHeight = *(uint32_t*)(mainBase + 0x00CA8970); // Current address (Height)
 
             // Dynamic scale factors based on actual memory values
-            float scaleX = (float)engineWidth  / 1280.0f;
-            float scaleY = (float)engineHeight / 720.0f;
+            //             float scaleX = (float)engineWidth  / 1280.0f;
+            //             float scaleY = (float)engineHeight / 720.0f;
 
             static uint64_t lastTick = 0;
             uint64_t currentTick = nn::os::GetSystemTick().GetInt64Value();
