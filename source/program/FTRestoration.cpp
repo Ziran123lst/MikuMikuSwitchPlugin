@@ -13,6 +13,8 @@
 #define ADDR_TAA_QUALITY_FLAG     FIX(0x0020C3D0) // quality-flag getter, TAA capability gate at 0x4ABAF4
 #define ADDR_TAA_FRAME_DISABLE    FIX(0x00481B40) // per-frame disable call: bl 0x4A0440 with w1 = 0
 #define ADDR_TAA_ENABLE_STR       FIX(0x004A044C) // str w1, [x0, #0xC] -> str w8 (force enable = 1)
+#define ADDR_TAA_RESOLVE_W26      FIX(0x004ABAC0) // AA resolve: mov w26, wzr -> mov w26, #1 (temporal enable)
+#define ADDR_TAA_JITTER_FORCE     FIX(0x004AE050) // jitter path: ldr w8, [x0, #0xC] -> mov w8, #1 (force jitter)
 
 #define ADDR_NPR_CSTMMENU_KILL    FIX(0x003D4674)
 #define ADDR_FXAA_CSTMMENU_KILL   FIX(0x003D4678)
@@ -689,6 +691,17 @@ void FTRestoration::init() {
         // 3. In the TAA enable setter (0x4A0440), always write enable = 1:
         //    str w1, [x0, #0xC] -> str w8, [x0, #0xC] (w8 == 1 from the mov w8, #1 above)
         exl::patch::CodePatcher(ADDR_TAA_ENABLE_STR).Write<uint32_t>(0xB9000C08);
+
+        // 4. AA resolve (0x4ABAC0): the resolver clears the temporal-enable register
+        //    w26 to 0 every resolve, which gates off the whole temporal (motion-blur)
+        //    path even when the capability gate passes. Force w26 = 1 so the
+        //    temporal accumulation actually runs (PS4 parity).
+        exl::patch::CodePatcher(ADDR_TAA_RESOLVE_W26).Write<uint32_t>(0x5280003A); // mov w26, #1
+
+        // 5. Jitter path (0x4AE050): the jitter/reprojection stage reads enable from
+        //    [x0, #0xC] and skips the ±0.25 jitter when 0. Force w8 = 1 so the
+        //    temporal jitter (the smooth motion-blur sampling) always executes.
+        exl::patch::CodePatcher(ADDR_TAA_JITTER_FORCE).Write<uint32_t>(0x52800028); // mov w8, #1
     }
 
     // 4. Customization Menu AFT/FT Style Graphics
