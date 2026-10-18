@@ -18,23 +18,16 @@ jobs:
 
       - name: Setup /home/lsmsmx paths and fetch upstream b8025c7
         run: |
-          mkdir -p /home/lsmsmx
-          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
           mkdir -p /home/lsmsmx/m
+          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
           tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
-          # rtld symlink: real dir under /home/lsmsmx/exlaunch, symlink from project
-          mkdir -p /home/lsmsmx/exlaunch/source
-          cp -r /home/lsmsmx/m/source/rtld /home/lsmsmx/exlaunch/source/rtld
-          rm -rf /home/lsmsmx/m/source/rtld
-          ln -s /home/lsmsmx/exlaunch/source/rtld /home/lsmsmx/m/source/rtld
           ls /home/lsmsmx/m | head -5
-          ls -la /home/lsmsmx/m/source/rtld
 
-      - name: Patch config.mk (-Wno-error)
+      - name: Patch config.mk (-Wno-error + file-prefix-map)
         run: |
           cd /home/lsmsmx/m
-          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error/' config.mk
-          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error/' config.mk
+          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           grep -E "C_FLAGS|CXX_FLAGS" config.mk
 
       - name: Build
@@ -44,9 +37,8 @@ jobs:
           export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
           cd /home/lsmsmx/m
           make -j8 > /tmp/build.log 2>&1
-          tail -8 /tmp/build.log
-          mkdir -p deploy
-          ls -la deploy/
+          tail -5 /tmp/build.log
+          ls -la deploy/ 2>/dev/null || ls -la *.elf
 
       - name: Release subsdk9
         if: success()
@@ -55,7 +47,9 @@ jobs:
           tag_name: repro2-build
           name: repro2 (20250527 + /home/lsmsmx paths)
           body: "repro2 build"
-          files: /home/lsmsmx/m/deploy/subsdk9
+          files: |
+            /home/lsmsmx/m/deploy/subsdk9
+            /home/lsmsmx/m/m.elf
           fail_on_unmatched_files: false
 
       - name: Release build log
