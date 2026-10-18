@@ -21,17 +21,19 @@ jobs:
           rm -rf ./* 2>/dev/null
           curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
           tar -xzf /tmp/up.tar.gz --strip-components=1
-          ls | head
-          git log --oneline -1 2>/dev/null || true
+          ls | head -20
 
-      - name: Build
+      - name: Build (log to artifact)
         run: |
           export DEVKITPRO=/opt/devkitpro
           export DEVKITA64=/opt/devkitpro/devkitA64
           export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
-          make -j8
+          mkdir -p deploy
+          make -j8 2>&1 | tee deploy/build.log
+          exit ${PIPESTATUS[0]}
 
-      - name: Upload artifact
+      - name: Upload artifact (always)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: upstream-repro
