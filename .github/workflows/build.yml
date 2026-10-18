@@ -9,52 +9,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: devkitpro/devkita64:latest
+      image: devkitpro/devkita64:20250527
     timeout-minutes: 60
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Get upstream b8025c7 source (curl tarball)
+      - name: Probe toolchain version
         run: |
-          rm -rf ./* 2>/dev/null
-          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
-          tar -xzf /tmp/up.tar.gz --strip-components=1
-          ls | head -5
-
-      - name: Patch config.mk (-Wno-error, same as user repo)
-        run: |
-          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error/' config.mk
-          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error/' config.mk
-          grep -E "C_FLAGS|CXX_FLAGS" config.mk
-
-      - name: Build
-        run: |
-          export DEVKITPRO=/opt/devkitpro
-          export DEVKITA64=/opt/devkitpro/devkitA64
-          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
-          make -j8 > /tmp/build.log 2>&1
-          tail -5 /tmp/build.log
-          mkdir -p deploy
-          cp deploy/subsdk9 /tmp/subsdk9 2>/dev/null || true
-
-      - name: Release subsdk9 (on success)
-        if: success()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: repro-build
-          name: repro-build (upstream b8025c7 + -Wno-error)
-          body: "repro build of pure upstream b8025c7 with -Wno-error"
-          files: deploy/subsdk9
-          fail_on_unmatched_files: false
-
-      - name: Release build log (on failure)
-        if: failure()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ci-log
-          name: CI build log
-          body: "CI failure log"
-          files: /tmp/build.log
-          fail_on_unmatched_files: false
+          gcc --version 2>&1 | head -1 || aarch64-none-elf-gcc --version 2>&1 | head -1
+          which aarch64-none-elf-gcc
+          ls /opt/devkitpro/devkitA64/bin/ | head -3
+          strings /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gcc* 2>/dev/null | grep -E "tool-package|pacman-package|4\.[0-9]+\.[0-9]+\.20" | head -5
