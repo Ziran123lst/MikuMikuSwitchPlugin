@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  taa-u3v:
+  taa-halved16:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Probe + fetch b8025c7
+      - name: Fetch b8025c7
         run: |
           mkdir -p /home/lsmsmx/m
           curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
@@ -28,12 +28,12 @@ jobs:
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
 
-      - name: Apply taa-u3v patch
+      - name: Apply taa-halved16
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-u3v.patch" /tmp/taa-u3v.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-halved16.patch" /tmp/p.patch
           cd /home/lsmsmx/m
-          patch -p1 < /tmp/taa-u3v.patch
-          grep -n "0x00481B40" source/program/FTRestoration.cpp | head -2
+          patch -p1 < /tmp/p.patch
+          grep -n "1E3E1001" source/program/FTRestoration.cpp | head -1
 
       - name: Build
         run: |
@@ -48,15 +48,15 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-u3v-build
-          name: taa-u3v (user 3-patch, raw vaddr)
-          body: "b8025c7 + NOP/w26/jitter at true vaddrs"
+          tag_name: taa-halved16-build
+          name: taa-halved16 (halved jitter + 16-sample)
+          body: "b8025c7 + jitter +-0.25px + 16-sample tier"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
           fail_on_unmatched_files: false
 
-  taa-fullv:
+  taa-halved8:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Probe + fetch b8025c7
+      - name: Fetch b8025c7
         run: |
           mkdir -p /home/lsmsmx/m
           curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
@@ -78,12 +78,12 @@ jobs:
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
 
-      - name: Apply taa-fullv patch
+      - name: Apply taa-halved8
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-fullv.patch" /tmp/taa-fullv.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-halved8.patch" /tmp/p.patch
           cd /home/lsmsmx/m
-          patch -p1 < /tmp/taa-fullv.patch
-          grep -n "sTaa16Body" source/program/FTRestoration.cpp | head -2
+          patch -p1 < /tmp/p.patch
+          grep -n "sTaa8Body" source/program/FTRestoration.cpp | head -1
 
       - name: Build
         run: |
@@ -98,9 +98,9 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-fullv-build
-          name: taa-fullv (full 5-patch, raw vaddr)
-          body: "b8025c7 + NOP/getter16/enable/w26/jitter at true vaddrs"
+          tag_name: taa-halved8-build
+          name: taa-halved8 (halved jitter + 8-sample)
+          body: "b8025c7 + jitter +-0.25px + 8-sample tier"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
