@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  taa-smooth16:
+  jitA:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -15,26 +15,22 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
       - name: Fetch b8025c7
         run: |
           mkdir -p /home/lsmsmx/m
           curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
           tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
-
       - name: Patch config.mk
         run: |
           cd /home/lsmsmx/m
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-
-      - name: Apply taa-smooth16
+      - name: Apply jitA
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-smooth16.patch" /tmp/p.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-jitA.patch" /tmp/p.patch
           cd /home/lsmsmx/m
           patch -p1 < /tmp/p.patch
           grep -n "sJitterBody" source/program/FTRestoration.cpp | head -1
-
       - name: Build
         run: |
           export DEVKITPRO=/opt/devkitpro
@@ -43,14 +39,103 @@ jobs:
           cd /home/lsmsmx/m
           make -j8 > /tmp/build.log 2>&1
           tail -3 /tmp/build.log
-
       - name: Release
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-smooth16-build
-          name: taa-smooth16 (16-phase monotonic jitter)
-          body: "b8025c7 + 16-phase monotonic jitter (1/16 px step), phase updater mod-16"
+          tag_name: taa-jitA-build
+          name: taa-jitA (monotonic phase/16 jitter)
+          body: "b8025c7 + monotonic jitter, original phase updater"
+          files: |
+            /home/lsmsmx/m/deploy/subsdk9
+            /tmp/build.log
+          fail_on_unmatched_files: false
+
+  jitE:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:20241023
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch b8025c7
+        run: |
+          mkdir -p /home/lsmsmx/m
+          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
+          tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
+      - name: Patch config.mk
+        run: |
+          cd /home/lsmsmx/m
+          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+      - name: Apply jitE
+        run: |
+          cp "$GITHUB_WORKSPACE/patches/taa-jitE.patch" /tmp/p.patch
+          cd /home/lsmsmx/m
+          patch -p1 < /tmp/p.patch
+          grep -n "sJitterBody" source/program/FTRestoration.cpp | head -1
+      - name: Build
+        run: |
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITA64=/opt/devkitpro/devkitA64
+          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
+          cd /home/lsmsmx/m
+          make -j8 > /tmp/build.log 2>&1
+          tail -3 /tmp/build.log
+      - name: Release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: taa-jitE-build
+          name: taa-jitE (+-0.25 alternate jitter)
+          body: "b8025c7 + alternate +-0.25 jitter, original phase updater"
+          files: |
+            /home/lsmsmx/m/deploy/subsdk9
+            /tmp/build.log
+          fail_on_unmatched_files: false
+
+  jitB:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:20241023
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch b8025c7
+        run: |
+          mkdir -p /home/lsmsmx/m
+          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
+          tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
+      - name: Patch config.mk
+        run: |
+          cd /home/lsmsmx/m
+          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+      - name: Apply jitB
+        run: |
+          cp "$GITHUB_WORKSPACE/patches/taa-jitB.patch" /tmp/p.patch
+          cd /home/lsmsmx/m
+          patch -p1 < /tmp/p.patch
+          grep -n "PHASE_CBZ" source/program/FTRestoration.cpp | head -1
+      - name: Build
+        run: |
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITA64=/opt/devkitpro/devkitA64
+          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
+          cd /home/lsmsmx/m
+          make -j8 > /tmp/build.log 2>&1
+          tail -3 /tmp/build.log
+      - name: Release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: taa-jitB-build
+          name: taa-jitB (phase updater mod-16, original jitter)
+          body: "b8025c7 + phase updater mod-16 only"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
