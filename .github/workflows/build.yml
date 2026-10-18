@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  taa-user3:
+  taa-u3v:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -28,12 +28,12 @@ jobs:
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
 
-      - name: Apply taa-user3 patch
+      - name: Apply taa-u3v patch
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-user3.patch" /tmp/taa-user3.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-u3v.patch" /tmp/taa-u3v.patch
           cd /home/lsmsmx/m
-          patch -p1 < /tmp/taa-user3.patch
-          grep -n "0x00481C40" source/program/FTRestoration.cpp | head -2
+          patch -p1 < /tmp/taa-u3v.patch
+          grep -n "0x00481B40" source/program/FTRestoration.cpp | head -2
 
       - name: Build
         run: |
@@ -48,15 +48,15 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-user3-build
-          name: taa-user3 (user 3-patch, vaddr corrected)
-          body: "b8025c7 + NOP/w26/jitter only"
+          tag_name: taa-u3v-build
+          name: taa-u3v (user 3-patch, raw vaddr)
+          body: "b8025c7 + NOP/w26/jitter at true vaddrs"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
           fail_on_unmatched_files: false
 
-  taa-8samp:
+  taa-fullv:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -78,12 +78,12 @@ jobs:
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
 
-      - name: Apply taa-8samp patch
+      - name: Apply taa-fullv patch
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-8samp.patch" /tmp/taa-8samp.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-fullv.patch" /tmp/taa-fullv.patch
           cd /home/lsmsmx/m
-          patch -p1 < /tmp/taa-8samp.patch
-          grep -n "sTaa8SampleBody" source/program/FTRestoration.cpp | head -2
+          patch -p1 < /tmp/taa-fullv.patch
+          grep -n "sTaa16Body" source/program/FTRestoration.cpp | head -2
 
       - name: Build
         run: |
@@ -98,9 +98,9 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-8samp-build
-          name: taa-8samp (8-sample tier, low overhead)
-          body: "b8025c7 + NOP/getter(8samp)/enable/w26/jitter"
+          tag_name: taa-fullv-build
+          name: taa-fullv (full 5-patch, raw vaddr)
+          body: "b8025c7 + NOP/getter16/enable/w26/jitter at true vaddrs"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
