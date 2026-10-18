@@ -13,6 +13,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -20,6 +21,7 @@ jobs:
         run: |
           rm -rf ./* 2>/dev/null
           curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
+          ls -la /tmp/up.tar.gz
           tar -xzf /tmp/up.tar.gz --strip-components=1
           ls | head -20
 
@@ -33,16 +35,30 @@ jobs:
           mkdir -p deploy
           cp deploy/subsdk9 /tmp/subsdk9 2>/dev/null || true
 
-      - name: Push build log to ci-logs branch (on failure)
+      - name: Post build log to issue (on failure)
         if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config user.name "ci-bot"
-          git config user.email "ci-bot@users.noreply.github.com"
-          git checkout -b ci-logs 2>/dev/null || git checkout ci-logs
-          cp /tmp/build.log ./ci-build-log.txt
-          git add ci-build-log.txt
-          git commit -m "ci: build log $(date +%s)"
-          git push origin ci-logs
+          python3 - <<'PY'
+          import urllib.request, json, os, time
+          try:
+              body = open('/tmp/build.log', encoding='utf-8', errors='replace').read()
+          except Exception:
+              body = 'no build.log; earlier step failed'
+          body = body[-6000:]
+          payload = json.dumps({
+              "title": "CI build log #" + str(int(time.time())),
+              "body": "```\n" + body + "\n```"
+          }).encode()
+          req = urllib.request.Request(
+              'https://api.github.com/repos/Ziran123lst/MikuMikuSwitchPlugin/issues',
+              data=payload,
+              headers={"Authorization": "token " + os.environ['GH_TOKEN'],
+                       "Accept": "application/vnd.github+json",
+                       "Content-Type": "application/json"})
+          print(urllib.request.urlopen(req, timeout=30).read().decode()[:200])
+          PY
 
       - name: Upload artifact
         if: success()
