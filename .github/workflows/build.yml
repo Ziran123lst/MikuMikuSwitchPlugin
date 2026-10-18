@@ -14,28 +14,56 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Probe toolchain version
-        run: |
-          {
-            echo "=== gcc version ==="
-            /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gcc --version | head -2
-            echo "=== newlib ==="
-            grep -E "NEWLIB|__NEWLIB" /opt/devkitpro/devkitA64/aarch64-none-elf/include/newlib.h | head -3
-            echo "=== version files ==="
-            cat /opt/devkitpro/devkitA64/version 2>/dev/null | head -3
-            ls /opt/devkitpro/devkitA64/*.txt /opt/devkitpro/devkitA64/README* 2>/dev/null | head -3
-            echo "=== package ==="
-            cat /opt/devkitpro/switch-dev/README* 2>/dev/null | head -5
-            cat /opt/devkitpro/DEVKITPRO_VERSION* 2>/dev/null | head -2
-            ls /opt/devkitpro/ | head -10
-          } > /tmp/probe.txt
-          cat /tmp/probe.txt
+      - uses: actions/checkout@v4
 
-      - name: Release probe result
+      - name: Setup /home/lsmsmx paths and fetch upstream b8025c7
+        run: |
+          mkdir -p /home/lsmsmx
+          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
+          mkdir -p /home/lsmsmx/m
+          tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
+          # rtld symlink: real dir under /home/lsmsmx/exlaunch, symlink from project
+          mkdir -p /home/lsmsmx/exlaunch/source
+          cp -r /home/lsmsmx/m/source/rtld /home/lsmsmx/exlaunch/source/rtld
+          rm -rf /home/lsmsmx/m/source/rtld
+          ln -s /home/lsmsmx/exlaunch/source/rtld /home/lsmsmx/m/source/rtld
+          ls /home/lsmsmx/m | head -5
+          ls -la /home/lsmsmx/m/source/rtld
+
+      - name: Patch config.mk (-Wno-error)
+        run: |
+          cd /home/lsmsmx/m
+          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error/' config.mk
+          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error/' config.mk
+          grep -E "C_FLAGS|CXX_FLAGS" config.mk
+
+      - name: Build
+        run: |
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITA64=/opt/devkitpro/devkitA64
+          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
+          cd /home/lsmsmx/m
+          make -j8 > /tmp/build.log 2>&1
+          tail -8 /tmp/build.log
+          mkdir -p deploy
+          ls -la deploy/
+
+      - name: Release subsdk9
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ci-probe
-          name: CI probe result
-          body: "probe"
-          files: /tmp/probe.txt
+          tag_name: repro2-build
+          name: repro2 (20250527 + /home/lsmsmx paths)
+          body: "repro2 build"
+          files: /home/lsmsmx/m/deploy/subsdk9
+          fail_on_unmatched_files: false
+
+      - name: Release build log
+        if: failure()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-log
+          name: CI build log
+          body: "log"
+          files: /tmp/build.log
           fail_on_unmatched_files: false
