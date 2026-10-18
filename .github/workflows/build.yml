@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  taa-smooth8:
+  taa-smooth16:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -28,9 +28,9 @@ jobs:
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
 
-      - name: Apply taa-smooth8
+      - name: Apply taa-smooth16
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-smooth8.patch" /tmp/p.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-smooth16.patch" /tmp/p.patch
           cd /home/lsmsmx/m
           patch -p1 < /tmp/p.patch
           grep -n "sJitterBody" source/program/FTRestoration.cpp | head -1
@@ -48,9 +48,9 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-smooth8-build
-          name: taa-smooth8 (8-phase smooth jitter)
-          body: "b8025c7 + 8-phase smooth jitter mapping + phase updater forced mod-8"
+          tag_name: taa-smooth16-build
+          name: taa-smooth16 (16-phase monotonic jitter)
+          body: "b8025c7 + 16-phase monotonic jitter (1/16 px step), phase updater mod-16"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
