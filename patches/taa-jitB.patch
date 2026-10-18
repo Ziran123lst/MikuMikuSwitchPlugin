@@ -40,10 +40,10 @@ index 6ef8eb4..7ec9a42 100644
      static bool extraFtGraphics;
      static bool no3D;
 diff --git a/source/program/FTRestoration.cpp b/source/program/FTRestoration.cpp
-index 5937811..af0fc16 100644
+index 5937811..4919d31 100644
 --- a/source/program/FTRestoration.cpp
 +++ b/source/program/FTRestoration.cpp
-@@ -9,6 +9,13 @@
+@@ -9,6 +9,16 @@
  #define ADDR_SSS_BIT_GETTER       FIX(0x0020B950)
  #define ADDR_SSS_BIT_SETTER       FIX(0x0020B970)
  
@@ -54,10 +54,13 @@ index 5937811..af0fc16 100644
 +#define ADDR_TAA_RESOLVE_W26      0x004ABAC0 // orr w26,wzr,wzr -> mov w26,#1
 +#define ADDR_TAA_JITTER_FORCE     0x004AE050 // ldr w8,[x0,#0xC] -> mov w8,#1
 +#define ADDR_TAA_JITTER_BODY      0x004AE05C // jitter body
++#define ADDR_TAA_PHASE_CBZ        0x004AC3FC // cbz w23 -> NOP (always update phase)
++#define ADDR_TAA_PHASE_CMP        0x004AC404 // cmp w23,w8 -> add w8,w8,#1
++#define ADDR_TAA_PHASE_CSINC      0x004AC408 // csinc -> and w8,w8,#15
  #define ADDR_NPR_CSTMMENU_KILL    FIX(0x003D4674)
  #define ADDR_FXAA_CSTMMENU_KILL   FIX(0x003D4678)
  
-@@ -652,6 +659,33 @@ void FTRestoration::init() {
+@@ -652,6 +662,33 @@ void FTRestoration::init() {
          exl::patch::CodePatcher(ADDR_SSS_BIT_SETTER).Write<uint32_t>(ARM64_RET);
      }
  
