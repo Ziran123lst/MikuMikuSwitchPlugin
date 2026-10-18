@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  taa-b1:
+  taa-fixed:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -28,12 +28,12 @@ jobs:
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
 
-      - name: Apply taa-b1 patch
+      - name: Apply taa-fixed patch
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-b1.patch" /tmp/taa-b1.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-fixed.patch" /tmp/taa-fixed.patch
           cd /home/lsmsmx/m
-          patch -p1 < /tmp/taa-b1.patch
-          grep -n "sTaa16SampleBody" source/program/FTRestoration.cpp | head -2
+          patch -p1 < /tmp/taa-fixed.patch
+          grep -n "0x00481C40\|0x0020C4D0" source/program/FTRestoration.cpp | head -3
 
       - name: Build
         run: |
@@ -48,59 +48,9 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-b1-build
-          name: taa-b1 (NOP + getter replacement)
-          body: "b8025c7 + NOP + getter 11-instr replacement"
-          files: |
-            /home/lsmsmx/m/deploy/subsdk9
-            /tmp/build.log
-          fail_on_unmatched_files: false
-
-  taa-b2:
-    runs-on: ubuntu-latest
-    container:
-      image: devkitpro/devkita64:20241023
-    timeout-minutes: 60
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Probe + fetch b8025c7
-        run: |
-          mkdir -p /home/lsmsmx/m
-          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
-          tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
-
-      - name: Patch config.mk
-        run: |
-          cd /home/lsmsmx/m
-          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-
-      - name: Apply taa-b2 patch
-        run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-b2.patch" /tmp/taa-b2.patch
-          cd /home/lsmsmx/m
-          patch -p1 < /tmp/taa-b2.patch
-          grep -n "ADDR_TAA_ENABLE_STR" source/program/FTRestoration.cpp | head -2
-
-      - name: Build
-        run: |
-          export DEVKITPRO=/opt/devkitpro
-          export DEVKITA64=/opt/devkitpro/devkitA64
-          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
-          cd /home/lsmsmx/m
-          make -j8 > /tmp/build.log 2>&1
-          tail -3 /tmp/build.log
-
-      - name: Release
-        if: success()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: taa-b2-build
-          name: taa-b2 (NOP + 3 single-instr forces)
-          body: "b8025c7 + NOP + enable write / temporal w26 / jitter"
+          tag_name: taa-fixed-build
+          name: taa-fixed (vaddr +0x100 corrected)
+          body: "b8025c7 + vaddr-corrected 5-patch TAA (NOP/getter/enable/w26/jitter)"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
