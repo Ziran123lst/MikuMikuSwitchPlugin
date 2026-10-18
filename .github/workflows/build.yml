@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  cfg-only:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -16,29 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Probe + Setup /home/lsmsmx + fetch b8025c7
+      - name: Probe + fetch b8025c7
         run: |
-          /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gcc --version | head -1 > /tmp/tc.txt
-          cat /tmp/tc.txt
           mkdir -p /home/lsmsmx/m
           curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
           tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
-          ls /home/lsmsmx/m | head -3
 
-      - name: Patch config.mk (-Wno-error + file-prefix-map)
+      - name: Patch config.mk
         run: |
           cd /home/lsmsmx/m
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-          grep -E "C_FLAGS|CXX_FLAGS" config.mk
 
-      - name: Apply TAA patch (PS4-style TAA restore)
+      - name: Apply cfg-only patch
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa.patch" /tmp/taa.patch
+          cp "$GITHUB_WORKSPACE/patches/cfg-only.patch" /tmp/cfg-only.patch
           cd /home/lsmsmx/m
-          patch -p1 < /tmp/taa.patch
-          grep -n "ADDR_TAA" source/program/FTRestoration.cpp | head -8
-          grep -n "enable_taa" source/program/Config.cpp
+          patch -p1 < /tmp/cfg-only.patch
+          grep -n "enable_taa" source/program/Config.cpp | head -3
 
       - name: Build
         run: |
@@ -47,29 +42,66 @@ jobs:
           export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
           cd /home/lsmsmx/m
           make -j8 > /tmp/build.log 2>&1
-          tail -4 /tmp/build.log
-          ls -la deploy/ 2>/dev/null || ls -la *.elf
+          tail -3 /tmp/build.log
 
-      - name: Release subsdk9 (TAA build)
+      - name: Release
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-build
-          name: TAA (repro3 base + TAA patch)
-          body: "b8025c7 + TAA patch, 20241023 toolchain, /home/lsmsmx paths"
+          tag_name: cfg-only-build
+          name: cfg-only (no TAA code)
+          body: "b8025c7 + Config-only patch, enable_taa field, NO FTRestoration TAA code"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
           fail_on_unmatched_files: false
 
-      - name: Release tc version + log (always)
-        if: always()
+  taa-nop:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:20241023
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe + fetch b8025c7
+        run: |
+          mkdir -p /home/lsmsmx/m
+          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
+          tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
+
+      - name: Patch config.mk
+        run: |
+          cd /home/lsmsmx/m
+          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+
+      - name: Apply taa-nop patch
+        run: |
+          cp "$GITHUB_WORKSPACE/patches/taa-nop.patch" /tmp/taa-nop.patch
+          cd /home/lsmsmx/m
+          patch -p1 < /tmp/taa-nop.patch
+          grep -n "ADDR_TAA_FRAME_DISABLE" source/program/FTRestoration.cpp | head -3
+
+      - name: Build
+        run: |
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITA64=/opt/devkitpro/devkitA64
+          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
+          cd /home/lsmsmx/m
+          make -j8 > /tmp/build.log 2>&1
+          tail -3 /tmp/build.log
+
+      - name: Release
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ci-probe
-          name: probe
-          body: "tc"
+          tag_name: taa-nop-build
+          name: taa-nop (NOP only, patch 1 of 5)
+          body: "b8025c7 + Config + FTRestoration NOP-only (per-frame disable)"
           files: |
-            /tmp/tc.txt
+            /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
           fail_on_unmatched_files: false
