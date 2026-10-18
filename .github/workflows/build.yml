@@ -23,17 +23,29 @@ jobs:
           tar -xzf /tmp/up.tar.gz --strip-components=1
           ls | head -20
 
-      - name: Build (log to artifact)
+      - name: Build (log to /tmp)
         run: |
           export DEVKITPRO=/opt/devkitpro
           export DEVKITA64=/opt/devkitpro/devkitA64
           export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
+          make -j8 > /tmp/build.log 2>&1
+          tail -5 /tmp/build.log
           mkdir -p deploy
-          make -j8 2>&1 | tee deploy/build.log
-          exit ${PIPESTATUS[0]}
+          cp deploy/subsdk9 /tmp/subsdk9 2>/dev/null || true
 
-      - name: Upload artifact (always)
-        if: always()
+      - name: Push build log to ci-logs branch (on failure)
+        if: failure()
+        run: |
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git checkout -b ci-logs 2>/dev/null || git checkout ci-logs
+          cp /tmp/build.log ./ci-build-log.txt
+          git add ci-build-log.txt
+          git commit -m "ci: build log $(date +%s)"
+          git push origin ci-logs
+
+      - name: Upload artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: upstream-repro
