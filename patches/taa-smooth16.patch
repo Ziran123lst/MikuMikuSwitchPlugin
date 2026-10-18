@@ -40,7 +40,7 @@ index 6ef8eb4..7ec9a42 100644
      static bool extraFtGraphics;
      static bool no3D;
 diff --git a/source/program/FTRestoration.cpp b/source/program/FTRestoration.cpp
-index 5937811..70ee6a4 100644
+index 5937811..84f30b0 100644
 --- a/source/program/FTRestoration.cpp
 +++ b/source/program/FTRestoration.cpp
 @@ -9,6 +9,16 @@
@@ -60,16 +60,16 @@ index 5937811..70ee6a4 100644
  #define ADDR_NPR_CSTMMENU_KILL    FIX(0x003D4674)
  #define ADDR_FXAA_CSTMMENU_KILL   FIX(0x003D4678)
  
-@@ -652,6 +662,47 @@ void FTRestoration::init() {
+@@ -652,6 +662,48 @@ void FTRestoration::init() {
          exl::patch::CodePatcher(ADDR_SSS_BIT_SETTER).Write<uint32_t>(ARM64_RET);
      }
  
 +    // 3b. Temporal Anti-Aliasing (TAA) - PS4-style smooth 16-phase
 +    if (Config::enableTaa) {
-+        // 1. 去掉每帧把 TAA enable 写 0(init 处已恒置 1)
++        // 1. remove per-frame enable clear (init keeps it at 1)
 +        exl::patch::CodePatcher(ADDR_TAA_FRAME_DISABLE).Write<uint32_t>(ARM64_NOP);
 +
-+        // 2. 采样档 getter 强制 16 采样/返回 1
++        // 2. force 16-sample quality getter / return 1
 +        static const uint32_t sTaa16Body[] = {
 +            0xF0005689u, 0xF9444929u, 0x5291F288u, 0x72ACAE08u, 0xB868692Au,
 +            0x5280020Bu, 0x52A0080Cu, 0x52A0100Du, 0x2A0B014Au, 0x2A0C014Au,
@@ -77,17 +77,17 @@ index 5937811..70ee6a4 100644
 +        for (size_t i = 0; i < sizeof(sTaa16Body) / sizeof(uint32_t); i++)
 +            exl::patch::CodePatcher(ADDR_TAA_QUALITY_FLAG + i * 4).Write<uint32_t>(sTaa16Body[i]);
 +
-+        // 3. enable 恒写
++        // 3. keep enable written
 +        exl::patch::CodePatcher(ADDR_TAA_ENABLE_STR).Write<uint32_t>(0xB9000C08);
-+        // 4. resolve 里时域使能 w26 恒置 1
++        // 4. keep temporal enable w26 at 1 in resolve
 +        exl::patch::CodePatcher(ADDR_TAA_RESOLVE_W26).Write<uint32_t>(0x5280003A);
-+        // 5. jitter 入口强制走 TAA 路径
++        // 5. jitter entry forced into TAA path
 +        exl::patch::CodePatcher(ADDR_TAA_JITTER_FORCE).Write<uint32_t>(0x52800028);
 +
-+        // 6. jitter 函数体重写:16 相位单调映射(与 16 采样档周期匹配)
-+        //    偏移 = (phase & 15) / 16,序列 0, 0.0625, ..., 0.9375
-+        //    每帧偏移微小递增(1/16 px),取代原"恒定 +0.5px + 周期跳变"的卡顿
-+        //    相位周期 16 = 采样分布周期,消除 smooth8 的 8/16 错配闪烁
++        // 6. jitter body: 16-phase monotonic mapping (matches 16-sample period)
++        //    offset = (phase & 15) / 16 -> 0, 0.0625, ..., 0.9375
++        //    1/16 px step per frame instead of constant +0.5px with periodic jump
++        //    phase period 16 = sample distribution period (fixes smooth8 8/16 mismatch flicker)
 +        static const uint32_t sJitterBody[] = {
 +            0x12000D08u, // and w8, w8, #15
 +            0x1E220101u, // scvtf s1, w8
@@ -100,7 +100,7 @@ index 5937811..70ee6a4 100644
 +        for (size_t i = 0; i < sizeof(sJitterBody) / sizeof(uint32_t); i++)
 +            exl::patch::CodePatcher(ADDR_TAA_JITTER_BODY + i * 4).Write<uint32_t>(sJitterBody[i]);
 +
-+        // 7. 相位更新器:强制每帧 +1 mod 16(与 16 采样档匹配,消除对 w23 的依赖)
++        // 7. phase updater: force +1 mod 16 every frame (no w23 dependency)
 +        exl::patch::CodePatcher(ADDR_TAA_PHASE_CBZ).Write<uint32_t>(ARM64_NOP);
 +        exl::patch::CodePatcher(ADDR_TAA_PHASE_CMP).Write<uint32_t>(0x11000508);   // add w8, w8, #1
 +        exl::patch::CodePatcher(ADDR_TAA_PHASE_CSINC).Write<uint32_t>(0x12000D08); // and w8, w8, #15
