@@ -9,19 +9,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: devkitpro/devkita64:20250527
+      image: devkitpro/devkita64:20241023
     timeout-minutes: 60
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup /home/lsmsmx paths and fetch upstream b8025c7
+      - name: Probe + Setup /home/lsmsmx + fetch b8025c7
         run: |
+          /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gcc --version | head -1 > /tmp/tc.txt
+          cat /tmp/tc.txt
           mkdir -p /home/lsmsmx/m
           curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
           tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
-          ls /home/lsmsmx/m | head -5
+          ls /home/lsmsmx/m | head -3
 
       - name: Patch config.mk (-Wno-error + file-prefix-map)
         run: |
@@ -37,27 +39,25 @@ jobs:
           export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
           cd /home/lsmsmx/m
           make -j8 > /tmp/build.log 2>&1
-          tail -5 /tmp/build.log
+          tail -4 /tmp/build.log
           ls -la deploy/ 2>/dev/null || ls -la *.elf
 
       - name: Release subsdk9
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: repro2-build
-          name: repro2 (20250527 + /home/lsmsmx paths)
-          body: "repro2 build"
-          files: |
-            /home/lsmsmx/m/deploy/subsdk9
-            /home/lsmsmx/m/m.elf
+          tag_name: repro3-build
+          name: repro3 (20241023 + /home/lsmsmx paths)
+          body: "repro3 build"
+          files: /home/lsmsmx/m/deploy/subsdk9
           fail_on_unmatched_files: false
 
-      - name: Release build log
-        if: failure()
+      - name: Release tc version
+        if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ci-log
-          name: CI build log
-          body: "log"
-          files: /tmp/build.log
+          tag_name: ci-probe
+          name: probe
+          body: "tc"
+          files: /tmp/tc.txt
           fail_on_unmatched_files: false
