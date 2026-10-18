@@ -32,6 +32,14 @@ jobs:
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           grep -E "C_FLAGS|CXX_FLAGS" config.mk
 
+      - name: Apply TAA patch (PS4-style TAA restore)
+        run: |
+          cp "$GITHUB_WORKSPACE/patches/taa.patch" /tmp/taa.patch
+          cd /home/lsmsmx/m
+          patch -p1 < /tmp/taa.patch
+          grep -n "ADDR_TAA" source/program/FTRestoration.cpp | head -8
+          grep -n "enable_taa" source/program/Config.cpp
+
       - name: Build
         run: |
           export DEVKITPRO=/opt/devkitpro
@@ -42,22 +50,26 @@ jobs:
           tail -4 /tmp/build.log
           ls -la deploy/ 2>/dev/null || ls -la *.elf
 
-      - name: Release subsdk9
+      - name: Release subsdk9 (TAA build)
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: repro3-build
-          name: repro3 (20241023 + /home/lsmsmx paths)
-          body: "repro3 build"
-          files: /home/lsmsmx/m/deploy/subsdk9
+          tag_name: taa-build
+          name: TAA (repro3 base + TAA patch)
+          body: "b8025c7 + TAA patch, 20241023 toolchain, /home/lsmsmx paths"
+          files: |
+            /home/lsmsmx/m/deploy/subsdk9
+            /tmp/build.log
           fail_on_unmatched_files: false
 
-      - name: Release tc version
+      - name: Release tc version + log (always)
         if: always()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ci-probe
           name: probe
           body: "tc"
-          files: /tmp/tc.txt
+          files: |
+            /tmp/tc.txt
+            /tmp/build.log
           fail_on_unmatched_files: false

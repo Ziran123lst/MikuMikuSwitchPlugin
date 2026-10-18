@@ -1,0 +1,114 @@
+diff --git a/source/program/Config.cpp b/source/program/Config.cpp
+index 2d0e62f..cffc2ad 100644
+--- a/source/program/Config.cpp
++++ b/source/program/Config.cpp
+@@ -38,6 +38,7 @@ bool Config::acapellaMode = false;
+ // Graphics
+ bool Config::disableAdp = false;
+ bool Config::enableSss = false;
++bool Config::enableTaa = false;
+ bool Config::cstmMenuFtStyle = false;
+ bool Config::extraFtGraphics = false;
+ bool Config::no3D = false;
+@@ -157,6 +158,8 @@ static void SaveConfig(const std::string& path) {
+     tomlContent += "disable_adp = " + std::string(Config::disableAdp ? "true" : "false") + "\n";
+     tomlContent += "# Enable Subsurface Scattering (SSS) for Future Tone style graphics\n";
+     tomlContent += "enable_sss = " + std::string(Config::enableSss ? "true" : "false") + "\n";
++    tomlContent += "# Enable PS4-style Temporal Anti-Aliasing (TAA, motion blur) - forces 16-sample temporal accumulation\n";
++    tomlContent += "enable_taa = " + std::string(Config::enableTaa ? "true" : "false") + "\n";
+     tomlContent += "# Customization menu graphics in AFT/FT style (removes cell-shading in menu)\n";
+     tomlContent += "cstm_menu_ft_style = " + std::string(Config::cstmMenuFtStyle ? "true" : "false") + "\n";
+     tomlContent += "# Anti-Aliasing mode: \"mlaa\", \"fxaa\", \"off\"\n";
+@@ -348,6 +351,7 @@ bool Config::init() {
+             disableAdp = config["graphics"]["disable_adp"].value_or(false);
+             antiAliasing = config["graphics"]["anti_aliasing"].value_or("fxaa");
+             enableSss = config["graphics"]["enable_sss"].value_or(false);
++            enableTaa = config["graphics"]["enable_taa"].value_or(false);
+             cstmMenuFtStyle = config["graphics"]["cstm_menu_ft_style"].value_or(false);
+             ssaaMode = config["graphics"]["ssaa_mode"].value_or("off");
+             exposure = (float)config["graphics"]["exposure"].value_or(-1.0f);
+diff --git a/source/program/Config.hpp b/source/program/Config.hpp
+index 6ef8eb4..7ec9a42 100644
+--- a/source/program/Config.hpp
++++ b/source/program/Config.hpp
+@@ -33,6 +33,7 @@ struct Config {
+     // Graphics
+     static bool disableAdp;
+     static bool enableSss;
++    static bool enableTaa;
+     static bool cstmMenuFtStyle;
+     static bool extraFtGraphics;
+     static bool no3D;
+diff --git a/source/program/FTRestoration.cpp b/source/program/FTRestoration.cpp
+index 5937811..79482f1 100644
+--- a/source/program/FTRestoration.cpp
++++ b/source/program/FTRestoration.cpp
+@@ -9,6 +9,17 @@
+ #define ADDR_SSS_BIT_GETTER       FIX(0x0020B950)
+ #define ADDR_SSS_BIT_SETTER       FIX(0x0020B970)
+ 
++// TAA (PS4 Future Tone restore) - vaddr table, do NOT apply FIX()
++// (NSO file offset of .text is vaddr+0x101; exl patch base uses vaddr here,
++//  verified against the NSO bytes: bl 0x4A0440 @ 0x481C41 = 0x481B40+0x101,
++//  mov w26,wzr @ 0x4ABBC1 = 0x4ABAC0+0x101, ldr w8,[x0,#0xC] @ 0x4AE151,
++//  str w1,[x0,#0xC] @ 0x4A054D.)
++#define ADDR_TAA_QUALITY_FLAG     0x0020C3D0 // quality-flag getter, TAA capability gate at 0x4ABAF4
++#define ADDR_TAA_FRAME_DISABLE    0x00481B40 // per-frame disable call: bl 0x4A0440 with w1 = 0
++#define ADDR_TAA_ENABLE_STR       0x004A044C // str w1, [x0, #0xC] -> str w8 (force enable = 1)
++#define ADDR_TAA_RESOLVE_W26      0x004ABAC0 // AA resolve: mov w26, wzr -> mov w26, #1 (temporal enable)
++#define ADDR_TAA_JITTER_FORCE     0x004AE050 // jitter path: ldr w8, [x0, #0xC] -> mov w8, #1 (force jitter)
++
+ #define ADDR_NPR_CSTMMENU_KILL    FIX(0x003D4674)
+ #define ADDR_FXAA_CSTMMENU_KILL   FIX(0x003D4678)
+ 
+@@ -652,6 +663,50 @@ void FTRestoration::init() {
+         exl::patch::CodePatcher(ADDR_SSS_BIT_SETTER).Write<uint32_t>(ARM64_RET);
+     }
+ 
++    // 3b. Temporal Anti-Aliasing (TAA) - PS4 Future Tone restore
++    if (Config::enableTaa) {
++        // 1. NOP the per-frame disable call so the game no longer forces TAA off every frame
++        exl::patch::CodePatcher(ADDR_TAA_FRAME_DISABLE).Write<uint32_t>(ARM64_NOP);
++
++        // 2. Replace the quality-flag getter body (0x20C3D0): every call forces the
++        //    16-sample tier (bit4) plus both tier-selector bits (bit22/bit23) into the
++        //    AA flags word at *(gConfig+0x65708F94), so TAA always runs the 16-point
++        //    sampling pattern (PS4 parity; Switch defaults to the 8-point tier, which
++        //    shimmers / feels juddery on emulator), then returns 1 so the TAA
++        //    capability gate at 0x4ABAF4 passes.
++        static const uint32_t sTaa16SampleBody[] = {
++            0xF0005689u, // adrp x9, #0xcdf000
++            0xF9444929u, // ldr  x9, [x9, #0x890]        ; gConfig
++            0x5291F288u, // mov  w8, #0x8f94
++            0x72ACAE08u, // movk w8, #0x6570, lsl #16    ; w8 = 0x65708F94
++            0xB868692Au, // ldr  w10, [x9, x8]           ; flags
++            0x5280020Bu, // mov  w11, #0x10
++            0x72C0180Bu, // movk w11, #0xc0, lsl #16     ; w11 = 0xC00010 (bit4|bit22|bit23)
++            0x2A0B014Au, // orr  w10, w10, w11           ; force 16-sample tier + selectors
++            0xB828692Au, // str  w10, [x9, x8]
++            0x52800020u, // mov  w0, #1
++            0xD65F03C0u, // ret
++        };
++        for (size_t i = 0; i < sizeof(sTaa16SampleBody) / sizeof(uint32_t); i++) {
++            exl::patch::CodePatcher(ADDR_TAA_QUALITY_FLAG + i * 4).Write<uint32_t>(sTaa16SampleBody[i]);
++        }
++
++        // 3. In the TAA enable setter (0x4A0440), always write enable = 1:
++        //    str w1, [x0, #0xC] -> str w8, [x0, #0xC] (w8 == 1 from the mov w8, #1 above)
++        exl::patch::CodePatcher(ADDR_TAA_ENABLE_STR).Write<uint32_t>(0xB9000C08);
++
++        // 4. AA resolve (0x4ABAC0): the resolver clears the temporal-enable register
++        //    w26 to 0 every resolve, which gates off the whole temporal (motion-blur)
++        //    path even when the capability gate passes. Force w26 = 1 so the
++        //    temporal accumulation actually runs (PS4 parity).
++        exl::patch::CodePatcher(ADDR_TAA_RESOLVE_W26).Write<uint32_t>(0x5280003A); // mov w26, #1
++
++        // 5. Jitter path (0x4AE050): the jitter/reprojection stage reads enable from
++        //    [x0, #0xC] and skips the ±0.25 jitter when 0. Force w8 = 1 so the
++        //    temporal jitter (the smooth motion-blur sampling) always executes.
++        exl::patch::CodePatcher(ADDR_TAA_JITTER_FORCE).Write<uint32_t>(0x52800028); // mov w8, #1
++    }
++
+     // 4. Customization Menu AFT/FT Style Graphics
+     if (Config::cstmMenuFtStyle) {
+         exl::patch::CodePatcher(ADDR_NPR_CSTMMENU_KILL).Write<uint32_t>(0xF901BE7F);
