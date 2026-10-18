@@ -11,10 +11,28 @@ jobs:
     container:
       image: devkitpro/devkita64:20250527
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - name: Probe toolchain version
         run: |
-          gcc --version 2>&1 | head -1 || aarch64-none-elf-gcc --version 2>&1 | head -1
-          which aarch64-none-elf-gcc
-          ls /opt/devkitpro/devkitA64/bin/ | head -3
-          strings /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gcc* 2>/dev/null | grep -E "tool-package|pacman-package|4\.[0-9]+\.[0-9]+\.20" | head -5
+          {
+            echo "=== gcc version ==="
+            gcc --version 2>&1 | head -1 || aarch64-none-elf-gcc --version 2>&1 | head -1
+            echo "=== bin ==="
+            ls /opt/devkitpro/devkitA64/bin/ | head -5
+            echo "=== paths in gcc binary ==="
+            strings /opt/devkitpro/devkitA64/bin/aarch64-none-elf-gcc* 2>/dev/null | grep -E "tool-package|pacman-package|4\.[0-9]+\.[0-9]+\.20" | head -5
+            echo "=== newlib version ==="
+            ls /opt/devkitpro/devkitA64/aarch64-none-elf/include/newlib.h 2>/dev/null && grep -E "NEWLIB_VERSION" /opt/devkitpro/devkitA64/aarch64-none-elf/include/newlib.h | head -2
+          } > /tmp/probe.txt
+          cat /tmp/probe.txt
+
+      - name: Release probe result
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ci-probe
+          name: CI probe result
+          body: "probe"
+          files: /tmp/probe.txt
+          fail_on_unmatched_files: false
