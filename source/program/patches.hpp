@@ -169,4 +169,32 @@ inline void ApplyCustomPatches() {
     exl::patch::CodePatcher(ADDR_EFF_LIMIT).Write<uint32_t>(0x7103FC3F);
     exl::patch::CodePatcher(ADDR_LYRIC_LIMIT).Write<uint32_t>(0xF10FA27F);
 
+    // =========================================================
+    // TAA (Temporal Anti-Aliasing) restoration - PS4-style smooth
+    // =========================================================
+    // 1. NOP the per-frame TAA enable clear (bl 0x4A0440)
+    exl::patch::CodePatcher(0x00481B40).Write<uint32_t>(0xD503201F);
+    // 2. Force TAA quality getter to return enabled (mov w0,#1; ret)
+    exl::patch::CodePatcher(0x0020C3D0).Write<uint32_t>(0x52800020);
+    exl::patch::CodePatcher(0x0020C3D4).Write<uint32_t>(0xD65F03C0);
+    // 3. Keep TAA enable flag: str w1,[x0,#0xC] -> str w8,[x0,#0xC] (w8=1)
+    exl::patch::CodePatcher(0x004A044C).Write<uint32_t>(0xB9000808);
+    // 4. Force temporal enable in resolve: mov w26,wzr -> mov w26,#1
+    exl::patch::CodePatcher(0x004ABAC0).Write<uint32_t>(0x5280003A);
+    // 5. Force jitter path: ldr w8,[x0,#0xC] -> mov w8,#1
+    exl::patch::CodePatcher(0x004AE050).Write<uint32_t>(0x52800028);
+    // 6. 8-phase centered jitter body (replaces ±0.5px 2-value toggle)
+    //    phase 0-7 -> -0.5,-0.375,-0.25,-0.125,0,0.125,0.25,0.375 px
+    exl::patch::CodePatcher(0x004AE05C).Write<uint32_t>(0x12000908); // and w8,w8,#7
+    exl::patch::CodePatcher(0x004AE060).Write<uint32_t>(0x1E220101); // scvtf s1,w8
+    exl::patch::CodePatcher(0x004AE064).Write<uint32_t>(0x1E281002); // fmov s2,#0.125
+    exl::patch::CodePatcher(0x004AE068).Write<uint32_t>(0x1E220821); // fmul s1,s1,s2
+    exl::patch::CodePatcher(0x004AE06C).Write<uint32_t>(0x1E2C1002); // fmov s2,#0.5
+    exl::patch::CodePatcher(0x004AE070).Write<uint32_t>(0x1E223821); // fsub s1,s1,s2
+    exl::patch::CodePatcher(0x004AE074).Write<uint32_t>(0x1E200820); // fmul s0,s1,s0
+    // 7. Unfreeze phase counter: NOP cbz w23 (always update phase)
+    exl::patch::CodePatcher(0x004AC3FC).Write<uint32_t>(0xD503201F);
+    // 8. Phase always increments: csinc -> add w8,w8,#1 (no reset)
+    exl::patch::CodePatcher(0x004AC408).Write<uint32_t>(0x11000508);
+
 }
