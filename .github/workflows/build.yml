@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  vC-c16:
+  vC-c8:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -25,9 +25,9 @@ jobs:
           cd /home/lsmsmx/m
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-      - name: Apply taa-vC-c16.patch
+      - name: Apply taa-vC-c8.patch
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-vC-c16.patch" /tmp/p.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-vC-c8.patch" /tmp/p.patch
           cd /home/lsmsmx/m
           patch -p1 < /tmp/p.patch
           grep -n "JITTER_BODY" source/program/FTRestoration.cpp | head -1
@@ -42,16 +42,16 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log-vC-c16
+          name: build-log-vC-c8
           path: /tmp/build.log
           if-no-files-found: ignore
       - name: Release
         if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-vC-c16-debug
-          name: "vC-c16: jitter + unfreeze phase (w23 period kept)"
-          body: "b8025c7 + c16 jitter + NOP 0x4AC3FC cbz"
+          tag_name: taa-vC-c8-build
+          name: "vC-c8: 8-phase centered jitter + full phase unfreeze"
+          body: "b8025c7 + 8-phase jitter (7w, keeps orig fdiv normalize) + NOP cbz + csinc->add"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
