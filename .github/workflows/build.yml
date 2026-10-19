@@ -37,10 +37,7 @@ jobs:
           export DEVKITA64=/opt/devkitpro/devkitA64
           export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
           cd /home/lsmsmx/m
-          make -j8 > /tmp/build.log 2>&1
-          rc=$?
-          tail -60 /tmp/build.log
-          exit $rc
+          make -j8 > /tmp/build.log 2>&1 || { echo "=== BUILD FAILED ==="; cat /tmp/build.log; exit 1; }
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
