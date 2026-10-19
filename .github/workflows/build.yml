@@ -6,60 +6,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  vA-c16:
-    runs-on: ubuntu-latest
-    container:
-      image: devkitpro/devkita64:20241023
-    timeout-minutes: 60
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Fetch b8025c7
-        run: |
-          mkdir -p /home/lsmsmx/m
-          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
-          tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
-      - name: Patch config.mk
-        run: |
-          cd /home/lsmsmx/m
-          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-      - name: Apply taa-vA-c16.patch
-        run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-vA-c16.patch" /tmp/p.patch
-          cd /home/lsmsmx/m
-          patch -p1 < /tmp/p.patch
-          grep -n "JITTER_BODY" source/program/FTRestoration.cpp | head -1
-      - name: Build
-        run: |
-          export DEVKITPRO=/opt/devkitpro
-          export DEVKITA64=/opt/devkitpro/devkitA64
-          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
-          cd /home/lsmsmx/m
-          make -j8 > /tmp/build.log 2>&1
-          rc=$?
-          tail -60 /tmp/build.log
-          exit $rc
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-vA-c16
-          path: /tmp/build.log
-          if-no-files-found: ignore
-      - name: Release
-        if: success()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: taa-vA-c16-build
-          name: "vA: jitter-only (phase updater untouched)"
-          body: "b8025c7 + centered c16 jitter body only"
-          files: |
-            /home/lsmsmx/m/deploy/subsdk9
-            /tmp/build.log
-          fail_on_unmatched_files: false
-
   vC-c16:
     runs-on: ubuntu-latest
     container:
@@ -106,63 +52,9 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-vC-c16-build
+          tag_name: taa-vC-c16-rebuild
           name: "vC-c16: jitter + unfreeze phase (w23 period kept)"
           body: "b8025c7 + c16 jitter + NOP 0x4AC3FC cbz"
-          files: |
-            /home/lsmsmx/m/deploy/subsdk9
-            /tmp/build.log
-          fail_on_unmatched_files: false
-
-  vC-rgss16:
-    runs-on: ubuntu-latest
-    container:
-      image: devkitpro/devkita64:20241023
-    timeout-minutes: 60
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Fetch b8025c7
-        run: |
-          mkdir -p /home/lsmsmx/m
-          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
-          tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
-      - name: Patch config.mk
-        run: |
-          cd /home/lsmsmx/m
-          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-      - name: Apply taa-vC-rgss16.patch
-        run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-vC-rgss16.patch" /tmp/p.patch
-          cd /home/lsmsmx/m
-          patch -p1 < /tmp/p.patch
-          grep -n "JITTER_BODY" source/program/FTRestoration.cpp | head -1
-      - name: Build
-        run: |
-          export DEVKITPRO=/opt/devkitpro
-          export DEVKITA64=/opt/devkitpro/devkitA64
-          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
-          cd /home/lsmsmx/m
-          make -j8 > /tmp/build.log 2>&1
-          rc=$?
-          tail -60 /tmp/build.log
-          exit $rc
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-vC-rgss16
-          path: /tmp/build.log
-          if-no-files-found: ignore
-      - name: Release
-        if: success()
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: taa-vC-rgss16-build
-          name: "vC-rgss16: RGSS jitter + unfreeze phase"
-          body: "b8025c7 + rgss16 jitter + NOP 0x4AC3FC cbz"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
