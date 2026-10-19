@@ -44,7 +44,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: taa-vA-c16-build
-          name: vA: jitter-only (phase updater untouched)
+          name: "vA: jitter-only (phase updater untouched)"
           body: "b8025c7 + centered c16 jitter body only"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
@@ -89,7 +89,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: taa-vC-c16-build
-          name: vC-c16: jitter + unfreeze phase (w23 period kept)
+          name: "vC-c16: jitter + unfreeze phase (w23 period kept)"
           body: "b8025c7 + c16 jitter + NOP 0x4AC3FC cbz"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
@@ -134,7 +134,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: taa-vC-rgss16-build
-          name: vC-rgss16: RGSS jitter + unfreeze phase
+          name: "vC-rgss16: RGSS jitter + unfreeze phase"
           body: "b8025c7 + rgss16 jitter + NOP 0x4AC3FC cbz"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
