@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  jitB:
+  c16:
     runs-on: ubuntu-latest
     container:
       image: devkitpro/devkita64:20241023
@@ -25,9 +25,9 @@ jobs:
           cd /home/lsmsmx/m
           sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
           sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
-      - name: Apply jitB
+      - name: Apply c16
         run: |
-          cp "$GITHUB_WORKSPACE/patches/taa-jitB.patch" /tmp/p.patch
+          cp "$GITHUB_WORKSPACE/patches/taa-c16.patch" /tmp/p.patch
           cd /home/lsmsmx/m
           patch -p1 < /tmp/p.patch
           grep -n "PHASE_CBZ" source/program/FTRestoration.cpp | head -1
@@ -43,9 +43,54 @@ jobs:
         if: success()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: taa-jitB-build
-          name: taa-jitB (phase updater mod-16, original jitter)
-          body: "b8025c7 + phase updater mod-16 only"
+          tag_name: taa-c16-build
+          name: taa-c16 (centered 1D monotonic jitter)
+          body: "b8025c7 + centered phase/16-0.5 jitter, phase mod-16"
+          files: |
+            /home/lsmsmx/m/deploy/subsdk9
+            /tmp/build.log
+          fail_on_unmatched_files: false
+
+  rgss16:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:20241023
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch b8025c7
+        run: |
+          mkdir -p /home/lsmsmx/m
+          curl -sL https://github.com/lsmsmx/MikuMikuSwitchPlugin/archive/b8025c7.tar.gz -o /tmp/up.tar.gz
+          tar -xzf /tmp/up.tar.gz --strip-components=1 -C /home/lsmsmx/m
+      - name: Patch config.mk
+        run: |
+          cd /home/lsmsmx/m
+          sed -i 's/^C_FLAGS := .*/C_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+          sed -i 's/^CXX_FLAGS := .*/CXX_FLAGS := -Wno-error -ffile-prefix-map=\/home\/lsmsmx\/m\/source\/rtld=\/home\/lsmsmx\/exlaunch\/source\/rtld/' config.mk
+      - name: Apply rgss16
+        run: |
+          cp "$GITHUB_WORKSPACE/patches/taa-rgss16.patch" /tmp/p.patch
+          cd /home/lsmsmx/m
+          patch -p1 < /tmp/p.patch
+          grep -n "PHASE_CBZ" source/program/FTRestoration.cpp | head -1
+      - name: Build
+        run: |
+          export DEVKITPRO=/opt/devkitpro
+          export DEVKITA64=/opt/devkitpro/devkitA64
+          export PATH=$DEVKITA64/bin:$DEVKITPRO/tools/bin:/usr/bin:/bin
+          cd /home/lsmsmx/m
+          make -j8 > /tmp/build.log 2>&1
+          tail -3 /tmp/build.log
+      - name: Release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: taa-rgss16-build
+          name: taa-rgss16 (2D 4x4 RGSS grid jitter)
+          body: "b8025c7 + 2D RGSS 16-phase jitter, phase mod-16"
           files: |
             /home/lsmsmx/m/deploy/subsdk9
             /tmp/build.log
